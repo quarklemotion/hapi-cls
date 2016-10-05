@@ -1,8 +1,11 @@
-var lab      = require('lab');
-var describe = lab.experiment;
-var it       = lab.test;
-var before   = lab.before;
-var expect   = lab.expect;
+var Lab  = require('lab');
+var Code = require('code');
+var lab = exports.lab = Lab.script();
+
+var describe = lab.describe;
+var it = lab.it;
+var before = lab.before;
+var expect = Code.expect;
 
 describe("basic hapi CLS case", function () {
   var server;
@@ -10,28 +13,27 @@ describe("basic hapi CLS case", function () {
   before(function (done) {
     var cls = require('continuation-local-storage');
     var ns = cls.createNamespace('hapi@test');
-    ns.set('value', 42);
+    ns.run(function() {
+      ns.set('value', 42);
+    });
 
     var Server = require('hapi').Server;
-    server = new Server('localhost', 8080);
+    server = new Server();
+    server.connection({host: 'localhost', port: 8080});
 
-    server.pack.require('..', {namespace : ns.name}, function (err) {
+    server.register({ register: require('..'), options: {namespace : ns.name} }, function (err) {
       if (err) done(err);
     });
 
-    var hello = {
-      handler : function (request) {
-        ns.set('value', 'overwritten');
-        setTimeout(function () {
-          request.reply({value : ns.get('value')});
-        });
-      }
-    };
-
-    server.addRoute({
+    server.route({
       method : 'GET',
       path : '/hello',
-      config : hello
+      handler : function (request, reply) {
+        ns.set('value', 'overwritten');
+        setTimeout(function () {
+          reply({value : ns.get('value')});
+        });
+      }
     });
 
     done();
